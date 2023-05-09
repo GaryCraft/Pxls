@@ -45,7 +45,7 @@ public class OryAuthService extends AuthService {
 
     @Override
     public String getIdentifier(String token) throws UnirestException {
-        HttpResponse<JsonNode> me = Unirest.get(App.getConfig().getString("oauth.ory.baseurl") + "/oauth2/userinfo")
+        HttpResponse<JsonNode> me = Unirest.get(App.getConfig().getString("oauth.ory.baseurl") + "/userinfo")
                 .header("Authorization", "Bearer " + token)
                 .header("User-Agent", "pxls.space")
                 .asJson();
