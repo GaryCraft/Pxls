@@ -58,7 +58,7 @@ public class OryAuthService extends AuthService {
     }
 
     public String getName() {
-        return "Ory";
+		return App.getConfig().getString("oauth.ory.showname");
     }
 
     @Override
