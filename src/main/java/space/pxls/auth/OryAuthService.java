@@ -19,7 +19,7 @@ public class OryAuthService extends AuthService {
                 "access_type=online&" +
                 "state=" + state + "&" +
                 "redirect_uri=" + getCallbackUrl() + "&" +
-                "response_type=authorization_code&" +
+                "response_type=code&" +
                 "client_id=" + App.getConfig().getString("oauth.ory.key");
     }
 
