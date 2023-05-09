@@ -41,6 +41,7 @@ public class WebHandler {
     public WebHandler() {
         addServiceIfAvailable("reddit", new RedditAuthService("reddit"));
         addServiceIfAvailable("google", new GoogleAuthService("google"));
+        addServiceIfAvailable("ory", new OryAuthService("ory"));
         addServiceIfAvailable("discord", new DiscordAuthService("discord"));
         addServiceIfAvailable("vk", new VKAuthService("vk"));
         addServiceIfAvailable("tumblr", new TumblrAuthService("tumblr"));
