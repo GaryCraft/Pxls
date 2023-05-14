@@ -53,7 +53,7 @@ public class OryAuthService extends AuthService {
         if (json.has("error")) {
             return null;
         } else {
-            return json.getString("id");
+            return json.getString("email");
         }
     }
 
