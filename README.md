@@ -1,6 +1,6 @@
 <div align="center">
 
-![Pxls](https://i.imgur.com/K7j14LL.png)
+![Pxls](https://i.imgur.com/udeloqX.png)
 
 ![Java CI with Maven](https://img.shields.io/github/workflow/status/pxlsspace/Pxls/Java%20CI%20with%20Maven?style=flat-square)
 [![GitHub issues](https://img.shields.io/github/issues/pxlsspace/Pxls?style=flat-square)](https://github.com/pxlsspace/Pxls/issues)
@@ -102,7 +102,7 @@ Commands can be entered into the running instance through standard input.
 | `users` || Lists all authenticated usernames. |
 | `broadcast` | `(message)` | Sends the message in chat. |
 | `cf` | `(query)` | Runs the query through the chat filter. |
-| `relaodusers` || Reloads the user manager. **Laggy!** |
+| `reloadusers` || Reloads the user manager. **Laggy!** |
 | `idlecheck` || Runs the user timeout check. |
 | `senduserdata` || Broadcasts the non-idle user count in chat. |
 | `addnotification` | `(title) (expiry) (body)` | Adds a new notification to the notification panel with the body. `+123` for the expiry means 123 seconds from now. |

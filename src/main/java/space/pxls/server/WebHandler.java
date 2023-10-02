@@ -45,6 +45,7 @@ public class WebHandler {
         addServiceIfAvailable("discord", new DiscordAuthService("discord"));
         addServiceIfAvailable("vk", new VKAuthService("vk"));
         addServiceIfAvailable("tumblr", new TumblrAuthService("tumblr"));
+        addServiceIfAvailable("twitch", new TwitchAuthService("twitch"));
 
         engine = new PebbleEngine.Builder().build();
     }
@@ -166,7 +167,17 @@ public class WebHandler {
                     List<DBChatReport> chatReports = new ArrayList<>();
                     List<DBCanvasReport> canvasReports = new ArrayList<>();
                     List<Faction> factions = App.getDatabase().getFactionsForUID(profileUser.getId()).stream().map(Faction::new).collect(Collectors.toList());
-                    Map<String, String> keys = new TreeMap<>(App.getDatabase().getUserKeys(profileUser.getId()));
+                    Map<String, String> keys = new TreeMap<>(
+                        Comparator.comparing((String key) -> {
+                            var numbersOnly = key.replaceAll("[^\\d.]", "");
+                            if (numbersOnly.isEmpty()) {
+                                return 0.0;
+                            } else {
+                                return Double.parseDouble(numbersOnly);
+                            }
+                        }).thenComparing(Comparator.naturalOrder())
+                    );
+                    keys.putAll(App.getDatabase().getUserKeys(profileUser.getId()));
 
                     m.put("snip_mode", App.getSnipMode());
                     m.put("requested_self", requested_self);
@@ -314,6 +325,11 @@ public class WebHandler {
                         sendBadRequest(exchange, "Missing data");
                     } else {
                         if (dataObj.has("displayed")) { // user is attempting to update displayed status
+                            if (!faction.fetchMembers().stream().anyMatch(fUser -> fUser.getId() == user.getId())) {
+                                sendBadRequest(exchange, "You are not in the faction and cannot set it as displayed.");
+                                return;
+                            }
+
                             boolean displaying = false;
                             try {
                                 displaying = dataObj.get("displayed").getAsBoolean();
@@ -355,27 +371,31 @@ public class WebHandler {
                                 sendBadRequest(exchange, "Invalid banState and/or user supplied");
                                 return;
                             }
-                            if (opUser.trim().isEmpty()) {
-                                sendBadRequest(exchange, "Invalid user supplied");
-                            } else {
-                                User userToModify = App.getUserManager().getByName(opUser);
-                                if (userToModify == null || userToModify.getId() == user.getId()) {
+                            if (user.getId() == faction.getOwner()) {
+                                if (opUser.trim().isEmpty()) {
                                     sendBadRequest(exchange, "Invalid user supplied");
                                 } else {
-                                    if (isBanned) { // we're attempting to ban a user. make sure they exist in the user list
-                                        if (faction.fetchMembers().stream().anyMatch(fUser -> fUser.getId() == userToModify.getId())) {
-                                            FactionManager.getInstance().banMemberFromFaction(faction.getId(), userToModify.getId());
-                                        } else {
-                                            sendBadRequest(exchange, "The requested user is not a member of this faction.");
-                                        }
+                                    User userToModify = App.getUserManager().getByName(opUser);
+                                    if (userToModify == null || userToModify.getId() == user.getId()) {
+                                        sendBadRequest(exchange, "Invalid user supplied");
                                     } else {
-                                        if (faction.fetchBans().stream().anyMatch(fUser -> fUser.getId() == userToModify.getId())) {
-                                            FactionManager.getInstance().unbanMemberFromFaction(faction.getId(), userToModify.getId());
+                                        if (isBanned) { // we're attempting to ban a user. make sure they exist in the user list
+                                            if (faction.fetchMembers().stream().anyMatch(fUser -> fUser.getId() == userToModify.getId())) {
+                                                FactionManager.getInstance().banMemberFromFaction(faction.getId(), userToModify.getId());
+                                            } else {
+                                                sendBadRequest(exchange, "The requested user is not a member of this faction.");
+                                            }
                                         } else {
-                                            sendBadRequest(exchange, "The requested user is not banned from this faction.");
+                                            if (faction.fetchBans().stream().anyMatch(fUser -> fUser.getId() == userToModify.getId())) {
+                                                FactionManager.getInstance().unbanMemberFromFaction(faction.getId(), userToModify.getId());
+                                            } else {
+                                                sendBadRequest(exchange, "The requested user is not banned from this faction.");
+                                            }
                                         }
                                     }
                                 }
+                            } else {
+                                send(StatusCodes.FORBIDDEN, exchange, "You do not own this resource.");
                             }
                         } else if (dataObj.has("newOwner")) {
                             String newOwner;
@@ -1330,9 +1350,15 @@ public class WebHandler {
             return;
         }
 
-        if (discordName != null && !discordName.matches("^.{2,32}#\\d{4}$")) {
-            sendBadRequest(exchange, "name isn't in the format '{name}#{discriminator}'");
-            return;
+        if (discordName != null) {
+            if (discordName.contains("#") && !discordName.matches("^.{2,32}#\\d{4}$")){
+                sendBadRequest(exchange, "Name isn't in the format '{name}#{discriminator}'");
+                return;
+            }
+            if (!discordName.contains("#") && !discordName.matches("^[a-z0-9._]{2,32}$")){
+                sendBadRequest(exchange, "Name isn't in the discord tag format (only lowercase english letters, digits, periods and underlines allowed)");
+                return;
+            }
         }
 
         if (discordName == null) { //user is deleting name, bypass ratelimit check
@@ -1645,12 +1671,20 @@ public class WebHandler {
         } else if (!name.matches("[a-zA-Z0-9_\\-]+")) {
             respond(exchange, StatusCodes.BAD_REQUEST, new space.pxls.server.packets.http.Error("bad_username", "Username contains invalid characters"));
             return;
-        } else if (!discord.isEmpty() && !discord.matches("^.+?#\\d{4}")) {
-            respond(exchange, StatusCodes.BAD_REQUEST, new space.pxls.server.packets.http.Error("bad_discord", "Discord tag contains invalid characters"));
-            return;
-        } else if (!App.getUserManager().isValidSignupToken(token)) {
+        } else  if (!App.getUserManager().isValidSignupToken(token)) {
             respond(exchange, StatusCodes.BAD_REQUEST, new space.pxls.server.packets.http.Error("bad_token", "Invalid signup token"));
             return;
+        }
+
+        if (!discord.isEmpty()) {
+            if (discord.contains("#") && !discord.matches("^.{2,32}#\\d{4}$")){
+                respond(exchange, StatusCodes.BAD_REQUEST, new space.pxls.server.packets.http.Error("bad_discord", "Discord name isn't in the format '{name}#{discriminator}'"));
+                return;
+            }
+            if (!discord.contains("#") && !discord.matches("^[a-z0-9._]{2,32}$")){
+                respond(exchange, StatusCodes.BAD_REQUEST, new space.pxls.server.packets.http.Error("bad_discord", "Discord name isn't in the discord tag format (only lowercase english letters, digits, periods and underlines allowed)"));
+                return;
+            }
         }
 
         String ip = exchange.getAttachment(IPReader.IP);
